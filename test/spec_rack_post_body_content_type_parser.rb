@@ -33,6 +33,26 @@ begin
       result.must_be_empty
     end
 
+    describe "with custom block" do
+      specify "should call custom block" do
+        env = Rack::MockRequest.env_for '/', {
+          :method => 'POST',
+          :input => '{"key":"value"}',
+          "CONTENT_TYPE" => 'application/json',
+        }
+        app = lambda do |env|
+          [200, {'Content-Type' => 'text/plain'}, Rack::Request.new(env).POST]
+        end
+        parser = Rack::PostBodyContentTypeParser.new(app) do |body|
+          { 'key' => 'example' }
+        end
+
+        params = parser.call(env).last
+
+        params['key'].must_equal 'example'
+      end
+    end
+
     describe "contradiction between body and type" do
       def assert_failed_to_parse_as_json(response)
         response.wont_be_nil
@@ -56,6 +76,12 @@ begin
     env = Rack::MockRequest.env_for "/", {:method => "POST", :input => body, "CONTENT_TYPE" => content_type}
     app = lambda { |env| [200, {'Content-Type' => 'text/plain'}, Rack::Request.new(env).POST] }
     Rack::PostBodyContentTypeParser.new(app).call(env).last
+  end
+
+  def params_for_request_with_block(body, content_type, &block)
+    env = Rack::MockRequest.env_for "/", {:method => "POST", :input => body, "CONTENT_TYPE" => content_type}
+    app = lambda { |env| [200, {'Content-Type' => 'text/plain'}, Rack::Request.new(env).POST] }
+    Rack::PostBodyContentTypeParser.new(app, block).call(env).last
   end
 
 rescue LoadError => e
